@@ -1430,6 +1430,8 @@ b1: 10101011 ~b1: 01010100
 
 ### Algorithm
 
+*[standard library algorithm](https://hackingcpp.com/cpp/std/algorithms.html)*
+
 #### 遍历
 
 `for_each(@begin, @end, f(o))`: 接收迭代器的开始和结束, 将`f`作用这些元素
@@ -1777,5 +1779,305 @@ int main(void) {
 11 11 74 59 11 48 97 | 11
 11 11 74 59 11 48 97 | 97
 11 11 74 59 11 48 97 | 11 | 97
+*/
+```
+
+#### 拷贝/移动/交换
+
+`copy(@begin, @end, @target_begin) -> @target_end`: 将迭代器中的内容复制到目标迭代器中
+
+`move(@begin, @end, @target_begin) -> @target_end`: 将迭代器中的内容移动到目标迭代器中
+
+`iter_swap(@first, @second)`: 交换两个迭代器指定的内容
+
+`swap_ranges(@begin, @end, @target_begin) -> @target_end`: 交换迭代器中的内容
+
+```cpp
+/* Example */
+
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <vector>
+
+int main(void) {
+  std::vector<int> nums{11, 11, 74, 59, 11, 48, 97};
+  std::vector<int> nums2(10);
+  std::vector<std::string> str{"A", "B", "C", "D", "E", "F"};
+  std::vector<std::string> str2(10);
+  auto fun = [](int n) -> void { std::cout << n << ' '; };
+  auto fun2 = [](std::string s) -> void { std::cout << s << ' '; };
+
+  // copy
+  auto copyEnd = std::copy(nums.begin(), nums.begin() + 5, nums2.begin());
+  std::for_each(nums.begin(), nums.end(), fun);
+  std::cout << "| ";
+  std::for_each(nums2.begin(), copyEnd, fun);
+  std::cout << std::endl;
+  // move
+  auto moveEnd = std::move(str.begin(), str.begin() + 3, str2.begin());
+  std::for_each(str.begin(), str.end(), fun2);
+  std::cout << "| ";
+  std::for_each(str2.begin(), moveEnd, fun2);
+  std::cout << std::endl;
+  // iter_swap
+  std::for_each(nums.begin(), nums.end(), fun);
+  std::iter_swap(nums.begin(), nums.end() - 1);
+  std::cout << "| ";
+  std::for_each(nums.begin(), nums.end(), fun);
+  std::cout << std::endl;
+  // swap ranges
+  std::for_each(nums.begin(), nums.end(), fun);
+  std::swap_ranges(nums.begin(), nums.begin() + 2, nums.end() - 2);
+  std::cout << "| ";
+  std::for_each(nums.begin(), nums.end(), fun);
+  std::cout << std::endl;
+
+  return 0;
+}
+
+/*
+11 11 74 59 11 48 97 | 11 11 74 59 11 
+   D E F | A B C 
+11 11 74 59 11 48 97 | 97 11 74 59 11 48 11 
+97 11 74 59 11 48 11 | 48 11 74 59 11 97 11 
+*/
+```
+
+#### 修改
+
+`fill(@begin, @end, value)`: 用`value`填充迭代器
+
+`generate(@begin, @end, generator())`: 通过`generator()`生成值
+
+`transform(@begin, @end, @out, f(o))`: 将迭代器中元素作用`f`后存入指定迭代器
+
+```cpp
+/* Example */
+
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <vector>
+
+int main(void) {
+  std::vector<int> nums1(10);
+  std::vector<int> nums2(10);
+  std::vector<int> nums3(10);
+  auto fun = [](int n) -> void { std::cout << n << ' '; };
+  auto gen = []() -> int {
+    static int i = 0;
+    i++;
+    return i * i;
+  };
+  auto trans = [](int n) -> int { return n * 3; };
+
+  // fill
+  std::fill(nums1.begin(), nums1.end(), 8);
+  std::for_each(nums1.begin(), nums1.end(), fun);
+  std::cout << std::endl;
+  // generate
+  std::generate(nums2.begin(), nums2.end(), gen);
+  std::for_each(nums2.begin(), nums2.end(), fun);
+  std::cout << std::endl;
+  // transform
+  std::transform(nums2.begin(), nums2.end(), nums3.begin(), trans);
+  std::for_each(nums3.begin(), nums3.end(), fun);
+  std::cout << std::endl;
+
+  return 0;
+}
+
+/*
+8 8 8 8 8 8 8 8 8 8 
+1 4 9 16 25 36 49 64 81 100 
+3 12 27 48 75 108 147 192 243 300 
+*/
+```
+
+`replace(@begin, @end, old_value, new_value)`: 将迭代器中旧值替换为新值
+
+`replace_if(@begin, @end, condition(o) -> bool, new_value)`: 将迭代器中满足条件的旧值替换为新值
+
+`remove(@begin, @end, value)`: 移除等于`value`的值
+
+`remove_if(@begin, @end, f(o) -> bool)`: 移除满足条件的值
+
+```cpp
+/* Example */
+
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <vector>
+
+int main(void) {
+  std::vector<int> nums{1, 9, 8, 8, 2, 2, 4, 5};
+  auto fun = [](int n) -> void { std::cout << n << ' '; };
+  auto condition = [](int n) -> bool { return n > 7; };
+
+  // replace
+  std::for_each(nums.begin(), nums.end(), fun);
+  std::replace(nums.begin(), nums.end(), 2, 0);
+  std::cout << "| ";
+  std::for_each(nums.begin(), nums.end(), fun);
+  std::cout << std::endl;
+  // replace_if
+  std::for_each(nums.begin(), nums.end(), fun);
+  std::replace_if(nums.begin(), nums.end(), condition, 10);
+  std::cout << "| ";
+  std::for_each(nums.begin(), nums.end(), fun);
+  std::cout << std::endl;
+  // remove
+  std::for_each(nums.begin(), nums.end(), fun);
+  auto removeEnd = std::remove(nums.begin(), nums.end(), 0);
+  std::cout << "| ";
+  std::for_each(nums.begin(), removeEnd, fun);
+  std::cout << std::endl;
+  // remove_if
+  std::for_each(nums.begin(), removeEnd, fun);
+  auto removeIfEnd = std::remove_if(nums.begin(), removeEnd, condition);
+  std::cout << "| ";
+  std::for_each(nums.begin(), removeIfEnd, fun);
+  std::cout << std::endl;
+
+  return 0;
+}
+
+/*
+1 9 8 8 2 2 4 5 | 1 9 8 8 0 0 4 5 
+1 9 8 8 0 0 4 5 | 1 10 10 10 0 0 4 5 
+1 10 10 10 0 0 4 5 | 1 10 10 10 4 5 
+1 10 10 10 4 5 | 1 4 5 
+*/
+```
+
+### 智能指针
+
+#### `unique_ptr`
+
+*`unique_ptr`拥有资源的唯一所有权, 当`unique_ptr`被销毁或重置时, 资源自动释放.
+因为拥有资源唯一所有权, 无法进行赋值/复制操作, 但可以在函数中传递引用.*
+
+```cpp
+/* Example */
+
+/* user.hpp */
+
+#ifndef USER_HPP_
+#define USER_HPP_
+
+#include <algorithm>
+#include <iostream>
+#include <string>
+
+class User {
+ private:
+  int m_id;
+  std::string m_name;
+
+ public:
+  User() { std::cout << "无参构造" << std::endl; }
+  User(int id, const std::string &name) : m_id(id), m_name(name) {
+    std::cout << "id = " << m_id << " 带参构造" << std::endl;
+  }
+  ~User() { std::cout << "析构函数" << std::endl; }
+  void sayHello() const { std::cout << "Hello " << m_name << '!' << std::endl; }
+  friend std::ostream &operator<<(std::ostream &os, const User &user) {
+    os << "id: " << user.m_id << " name: " << user.m_name;
+    return os;
+  }
+};
+
+#endif  // !USER_HPP_
+
+/* main.cpp */
+
+#include <iostream>
+#include <memory>
+
+#include "user.hpp"
+
+void printUser(User *user);
+
+int main(void) {
+  // 创建智能指针
+  std::unique_ptr<User> user = std::make_unique<User>(1, "Steve");
+  // 调用方法
+  user->sayHello();
+  // get 方法获取底层指针
+  printUser(user.get());
+  // release 断开与底层指针的连接
+  User *o_user = user.release();
+  std::cout << "is nullptr: " << std::boolalpha << (user == nullptr)
+            << std::endl;
+  // reset 释放底层指针, 根据需要改成另一个指针
+  user.reset(o_user);
+  std::cout << *user << std::endl;
+
+  return 0;
+}
+
+void printUser(User *user) { std::cout << *user << std::endl; }
+
+/*
+id = 1 带参构造
+Hello Steve!
+id: 1 name: Steve
+is nullptr: true
+id: 1 name: Steve
+析构函数
+*/
+```
+
+此外, 可以用智能指针存数组:
+
+```cpp
+// 构造大小为10的数组
+unique_ptr<int[]> p = make_unique<int[]>(10);
+```
+
+#### `shared_ptr`
+
+*有多个对象或者代码段需要同一指针的副本, 可以使用`shared_ptr`, 它是一个可复制的
+支持共享所有权的智能指针. `shared_ptr`的初始化及使用和`unique_ptr`基本相同.*
+
+`shared_ptr`何时释放资源:
+
+> 通过引用计数: 引用计数用于跟踪正在使用的某个类的实例或特定对象的个数. 
+引用计数的智能指针跟踪[为引用一个真实指针而建立的智能指针的数目], 每次复制这样
+一个引用计数的智能指针时, 都会创建一个指向同一资源的新实例, 并且引用计数会增加. 
+当此类智能指针实例超出作用域或被重置时, 引用计数减少. 当引用计数降至0时, 资源
+不再有其它所有者, 智能指针将资源释放.
+
+```cpp
+/* Example */
+
+#include <iostream>
+#include <memory>
+
+#include "user.hpp"
+
+int main(void) {
+  std::shared_ptr<User> u1 = std::make_shared<User>(1, "steve");
+  std::cout << "use count: " << u1.use_count() << std::endl;
+  {
+    std::shared_ptr<User> u2 = u1;
+    std::cout << "use count: " << u1.use_count() << std::endl;
+  }
+  std::cout << "use count: " << u1.use_count() << std::endl;
+  std::shared_ptr<User> u3 = u1;
+  std::cout << "use count: " << u1.use_count() << std::endl;
+
+  return 0;
+}
+
+/*
+id = 1 带参构造
+use count: 1
+use count: 2
+use count: 1
+use count: 2
+析构函数
 */
 ```
