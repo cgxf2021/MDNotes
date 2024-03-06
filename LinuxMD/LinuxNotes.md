@@ -135,3 +135,129 @@ chmod -v a-x directory
 ## shell
 
 ## Makefile
+
+## linux中c编程
+
+### 进程
+
+* PPID: 当前进程的父进程号.
+* PID: 当前进程的进程号.
+* PGID: 当前进程所在组的进程组号.
+
+Linux 提供了3个获得金称号的函数:
+
+```c
+#include <unistd.h>
+#include <sys/types.h>
+
+pid_t getpid(void);
+
+pid_t getppid(void);
+
+pid_t getpgid(pid_t pid);
+```
+
+**创建进程**
+
+使用`fork`函数可以在已有的进程基础上创建一个子进程.
+
+```c
+pid_t fork(void);
+```
+
+使用`fork`函数得到的子进程是父进程的一个复制品, 继承了父进程整个地址空间.
+
+> 地址空间: 包括进程上下文、进程堆栈、打开的文件描述、信号控制设定、进程优先级、
+进程组号等. 子进程独有的只有进程号, 计时器. 因此使用`fork`函数代价很大.
+
+**创建区分主进程和子进程**
+
+```c
+/* Example */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main(void) {
+  pid_t pid = 0;
+
+  // 创建子进程
+  pid = fork();
+  if (pid == -1) {
+    printf("子进程创建失败\n");
+    exit(1);
+  } else if (pid == 0) {
+    printf("子进程id: %d\n", getpid());
+  } else {
+    printf("主进程id: %d\n", getpid());
+  }
+
+  return 0;
+}
+
+/*
+主进程id: 4722
+子进程id: 4723
+*/
+```
+
+**父进程拥有独立的地址空间**
+
+```c
+/* Example */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main(void) {
+  pid_t pid = 0;
+  int num = 100;
+
+  // 创建子进程
+  pid = fork();
+  if (pid == -1) {
+    printf("子进程创建失败\n");
+    exit(1);
+  } else if (pid == 0) {
+    printf("子进程id: %d <--> num: %d\n", getpid(), num);
+  } else {
+    num++;
+    printf("主进程id: %d <--> num: %d\n", getpid(), num);
+  }
+
+  return 0;
+}
+
+/*
+主进程id: 5020 <--> num: 101
+子进程id: 5021 <--> num: 100
+*/
+```
+
+**进程睡眠状态**
+
+`sleep`函数用于让进程进入睡眠状态
+
+```c
+unsigned int sleep(unsigned int seconds);
+```
+
+> 若进程挂起到指定的时间则返回0, 若有信号中断则返回剩余秒数. 进程挂起指定的秒数后程序并不会立即执行，系统只是将此进程切换到就绪态. 
+进程睡眠到指定的秒数后程序并不会立即执行, 系统只是将此进程切换到就绪态.
+
+**进程等待函数**
+
+`wait`函数等待子进程结束, 回收子进程资源.
+
+```c
+#include <sys/wait.h>
+
+pid_t wait(int *status);
+```
+
+> 调用`wait`函数的进程会挂起, 直到它的一个子进程退出或收到一个不能忽略的信号时才被唤醒. 
+若调用进程没有子进程或子进程已经结束, 该函数立即返回. 

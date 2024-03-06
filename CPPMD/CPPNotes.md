@@ -17,7 +17,389 @@ int main() {
 }
 ```
 
+### 名称空间
+
+用来处理不同的代码段之间的名称冲突问题
+
+```cpp
+/* Example */
+
+#include <iostream>
+
+namespace mycode {
+void foo() { std::cout << "foo() called in the mycode namespace" << std::endl; }
+}  // namespace mycode
+
+int main() {
+  mycode::foo();
+
+  return 0;
+}
+
+/*
+foo() called in the mycode namespace
+*/
+```
+
+### 数值极限
+
+使用定义在`<limits>`中的类模板`std::numeric_limits`. 
+
+```cpp
+/* Example */
+
+#include <iostream>
+#include <limits>
+
+using std::cout;
+using std::endl;
+
+int main() {
+  cout << "Max int value: " << std::numeric_limits<int>::max() << endl;
+  cout << "Min int value: " << std::numeric_limits<int>::min() << endl;
+  cout << "Lowest int value: " << std::numeric_limits<int>::lowest() << endl;
+  cout << "Max double value: " << std::numeric_limits<double>::max() << endl;
+  cout << "Min double value: " << std::numeric_limits<double>::min() << endl;
+  cout << "Lowest double value: " << std::numeric_limits<double>::lowest()
+       << endl;
+
+  return 0;
+}
+
+/*
+Max int value: 2147483647
+Min int value: -2147483648
+Lowest int value: -2147483648
+Max double value: 1.79769e+308
+Min double value: 2.22507e-308
+Lowest double value: -1.79769e+308
+*/
+```
+
+### 位运算符
+
+| 运算符 | 说明 | 用法 |
+| ----- | ----- | ----- |
+| `& / &=` | 按位与运算 | `i = j & k;` |
+| `\| / \|=` | 按位或运算 | `i = j \| k;` |
+| `<< / <<=` | 左移 | `i <<= 1;` |
+| `>> / >>=` | 右移 | `i >>= 4;` |
+| `^ / ^=` | 按位异或 | `i ^= j;` |
+
+### 枚举类型
+
+总是使用强类型`enum class`而不是类型不安全的旧式风格`enum`枚举. 
+
+```cpp
+/* Example */
+
+enum class PieceType { King, Queen, Rook, Pawn };
+
+PieceType piece1{PieceType::King};
+```
+
+### 结构体
+
+```cpp
+/* Example */
+
+struct Employee {
+  char firstInitial;
+  char lastInitial;
+  int employeeNumber;
+  int salary;
+};
+```
+
+### 条件语句
+
+#### `if/else`
+
+```cpp
+/* Example */
+
+if (int i = 0; i < 0) {
+// <if body>
+} else if (i == 0) {
+// <else if body>
+} else {
+// <else body>
+}
+```
+
+#### `switch`
+
+```cpp
+/* Example */
+
+enum class Menu { Open, Save, Download, Load };
+Menu menuItem = Menu::Open;
+
+switch (menuItem) {
+case Menu::Open:
+  // open
+  break;
+case Menu::Save:
+  // save
+  break;
+default:
+  // other
+  break;
+}
+```
+
+### 三向比较运算(C++20)
+
+三向比较运算符(`<=>`)可以用于确定两个值的大小顺序. 得到一个值是否等于、
+小于、大于另一个值. 
+
+### 函数
+
+> **函数签名**: 指函数名与形参列表组合在一起, 但不包括返回类型. 
+
+```cpp
+/* Example */
+
+#include <iostream>
+
+int addNumbers(int num1, int num2) {
+  std::cout << "Name of the Current Function: " << __func__ << std::endl;
+  return num1 + num2;
+}
+
+int main() {
+  int sum{addNumbers(5, 3)};
+
+  std::cout << "sum = " << sum << std::endl;
+
+  return 0;
+}
+
+/*
+Name of the Current Function: addNumbers
+sum = 8
+*/
+```
+
+> **函数重载**: 函数名称相同, 但参数列表不同. (仅指定不同的返回类型是不够的, 
+参数的数量/类型必须不同)
+
+### 结构化绑定
+
+```cpp
+/* Example */
+
+#include <array>
+#include <iostream>
+
+int main() {
+  std::array values{11, 22, 33};
+  // 必须为结构化绑定使用auto关键词
+  auto [x, y, z]{values};
+
+  std::cout << "x = " << x << " y = " << y << " z = " << z << std::endl;
+
+  return 0;
+}
+
+/* x = 11 y = 22 z = 33 */
+```
+
+### 循环
+
+C++提供了4种循环结构`for`循环, `while`循环, `do/while`循环, 基于范围的`for`循环. 
+
+```cpp
+/* Example */
+
+#include <array>
+#include <iostream>
+
+using std::array;
+
+int main() {
+  array<int, 5> values{1, 2, 3, 4, 5};
+  int i{0};
+
+  std::cout << "for1: ";
+  for (i = 0; i < values.size(); i++) {
+    std::cout << values[i] << ' ';
+  }
+  std::cout << "\nwhile: ";
+  i = 0;
+  while (i < values.size()) {
+    std::cout << values[i++] << ' ';
+  }
+  std::cout << "\ndo/while: ";
+  i = 0;
+  do {
+    std::cout << values[i++] << ' ';
+  } while (i < values.size());
+  std::cout << "\nfor2: ";
+  for (const auto &value : values) {
+    std::cout << value << ' ';
+  }
+  std::cout << '\n';
+
+  return 0;
+}
+
+/*
+for1: 1 2 3 4 5 
+while: 1 2 3 4 5 
+do/while: 1 2 3 4 5 
+for2: 1 2 3 4 5
+*/
+```
+
+### 初始化列表
+
+初始化列表在`<initializer_list>`头文件中定义, 
+利用初始化列表可以编写能够接收可变参数的函数. 
+
+```cpp
+/* Example */
+
+#include <initializer_list>
+#include <iostream>
+
+int makeSum(std::initializer_list<int> values) {
+  int total{0};
+  for (int value : values) {
+    total += value;
+  }
+  return total;
+}
+
+int main() {
+  int a{makeSum({1, 2, 3, 4, 5})};
+  int b{makeSum({11, 22, 33, 44, 55})};
+
+  std::cout << "a = " << a << std::endl;
+  std::cout << "b = " << b << std::endl;
+
+  return 0;
+}
+
+/*
+a = 15
+b = 165
+*/
+```
+
 ## CPP 面向对象
+
+### 实现一个基本的类
+
+#### 定义类
+
+首先声明一个类名, 在大括号内声明类的数据成员(属性)和方法(行为). 
+每个属性和行为都有特定的访问级别: `public`、`protected`、`private`. 
+
+* `public`: 可以在类的外部访问. 
+* `protected`: 可以在派生类中可以访问. 
+* `private`: 只能在本类中访问. 
+
+```cpp
+/* airline_ticket.h */
+
+class AirlineTicket {
+ public:
+  AirlineTicket();
+  ~AirlineTicket();
+
+  double calculatePriceInDollars();
+
+  // const限定, 表示该行为不会修改对象中的成员数据
+  const std::string &getPassengerName() const;
+  void setPassengerName(const std::string &name);
+
+  int getNumberOfMiles() const;
+  void setNumberOfMiles(int miles);
+
+  bool hasEliteSuperRewardsStatus() const;
+  void setHasEliteSuperRewardsStatus(bool status);
+
+ private:
+  std::string m_passengerName;
+  int m_numberOfMiles;
+  bool m_hasEliteSuperRewardsStatus;
+};
+```
+
+> 约定类数据成员都以`m_`开头. 
+
+与类同名但没有返回类型的方法是构造函数, 当创建类的对象时会自动调用构造函数. 
+`~`紧跟类名的方法是析构函数, 当销毁对象时会自动调用. 
+
+#### 实现类
+
+```cpp
+/* airline_ticket.cpp */
+
+#include "airline_ticket.h"
+
+AirlineTicket::AirlineTicket()
+    : m_passengerName{"Unknown Passenger"},
+      m_numberOfMiles{0},
+      m_hasEliteSuperRewardsStatus{false} {}
+
+AirlineTicket::~AirlineTicket() {}
+
+double AirlineTicket::calculatePriceInDollars() {
+  if (hasEliteSuperRewardsStatus()) {
+    return 0;
+  }
+  return getNumberOfMiles() * 0.1;
+}
+
+const std::string &AirlineTicket::getPassengerName() const {
+  return m_passengerName;
+}
+
+void AirlineTicket::setPassengerName(const std::string &name) {
+  m_passengerName = name;
+}
+
+int AirlineTicket::getNumberOfMiles() const { return m_numberOfMiles; }
+
+void AirlineTicket::setNumberOfMiles(int miles) { m_numberOfMiles = miles; }
+
+bool AirlineTicket::hasEliteSuperRewardsStatus() const {
+  return m_hasEliteSuperRewardsStatus;
+}
+
+void AirlineTicket::setHasEliteSuperRewardsStatus(bool status) {
+  m_hasEliteSuperRewardsStatus = status;
+}
+```
+
+#### 使用类
+
+```cpp
+/* Example */
+
+#include <iostream>
+
+#include "airline_ticket.h"
+
+using std::cout;
+using std::endl;
+
+int main() {
+  AirlineTicket airlineTicket;
+  airlineTicket.setPassengerName("smxrfx");
+  airlineTicket.setNumberOfMiles(700);
+  double cost{airlineTicket.calculatePriceInDollars()};
+  cout << "This ticket will cost $" << cost << endl;
+
+  return 0;
+}
+
+/*
+This ticket will cost $70
+*/
+```
 
 ## CPP I/O
 
@@ -1001,6 +1383,47 @@ id = 4 对象被移动赋值
 */
 ```
 
+**erase(): 从容器擦除指定的元素**
+
+1. 参数: **pos - 指向要移除的元素的迭代器** | **first, last - 要移除的元素范围**;
+2. 返回值: 移除元素之后的迭代器, 如果是最后一个元素, 则为end;
+
+```cpp
+/* Example */
+
+#include <algorithm>
+#include <iostream>
+#include <vector>
+
+using std::cout;
+using std::endl;
+
+int main() {
+  std::vector<int> nums{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  auto output = [](int n) -> void { cout << n << ' '; };
+
+  std::for_each(nums.begin(), nums.end(), output);
+  cout << endl;
+  // remove odd
+  for (std::vector<int>::iterator it = nums.begin(); it != nums.end();) {
+    if (*it % 2 == 1) {
+      it = nums.erase(it);
+    } else {
+      it++;
+    }
+  }
+  std::for_each(nums.begin(), nums.end(), output);
+  cout << endl;
+
+  return 0;
+}
+
+/*
+0 1 2 3 4 5 6 7 8 9 
+0 2 4 6 8 
+*/
+```
+
 ### forward_list
 
 *单向链表的迭代器只能进行自增操作*
@@ -1343,6 +1766,192 @@ Key: AR Value: 4
 Key: GG Value: 2
 Key: LGD Value: 3
 Key: TS Value: 1
+*/
+```
+
+### string
+
+```cpp
+/* Example */
+
+#include <iostream>
+#include <string>
+
+int main(void) {
+  std::string str1 = "Hello String";
+  std::string str2(10, 's');
+
+  std::cout << "str1: " << str1 << std::endl;
+  std::cout << "str2: " << str2 << std::endl;
+  // 字符串拼接
+  std::string str3 = str1 + str2;
+  std::cout << "str3: " << str3 << std::endl;
+  // 元素访问
+  std::cout << "str3[5]: " << str3[5] << std::endl;
+  std::cout << "str3.at(5): " << str3.at(5) << std::endl;
+  std::cout << "str3.front(): " << str3.front() << std::endl;
+  std::cout << "str3.back(): " << str3.back() << std::endl;
+  // 判空
+  std::cout << "str3 is empty: " << std::boolalpha << str3.empty() << std::endl;
+  // 返回字节数 != 字符数
+  std::cout << "str3 size: " << str3.size() << std::endl;
+  // 迭代器
+  std::string::iterator it = str3.begin();
+  it++;
+  std::cout << "iterator[1]: " << *it << std::endl;
+
+  return 0;
+}
+
+/*
+str1: Hello String
+str2: ssssssssss
+str3: Hello Stringssssssssss
+str3[5]:  
+str3.at(5):  
+str3.front(): H
+str3.back(): s
+str3 is empty: false
+str3 size: 22
+iterator[1]: e
+*/
+```
+
+*字符串比较*
+
+```cpp
+/* Example */
+
+#include <iostream>
+#include <string>
+
+int main(void) {
+  std::string str1 = "Hello String";
+  std::string str2 = "hello string";
+
+  // ==
+  std::cout << std::boolalpha << "str1 == str2: " << (str1 == str2)
+            << std::endl;
+  // compare
+  std::cout << std::boolalpha << "str1 compare str2: " << (str1.compare(str2))
+            << std::endl;
+  // 追加字符
+  str1.push_back('s');
+  std::cout << "str1 push_back: " << str1 << std::endl;
+  // 追加内容
+  str2.append(" and STL");
+  std::cout << "str2 append: " << str2 << std::endl;
+  // 插入
+  str2.insert(5, " std");
+  std::cout << "str2 insert: " << str2 << std::endl;
+  // 清除所有
+  str1.clear();
+  std::cout << "str1 clear: " << str1 << std::endl;
+  // 清除指定字符
+  str2.erase(str2.begin());
+  std::cout << "str2 erase begin: " << str2 << std::endl;
+
+  return 0;
+}
+
+/*
+str1 == str2: false
+str1 compare str2: -32
+str1 push_back: Hello Strings
+str2 append: hello string and STL
+str2 insert: hello std string and STL
+str1 clear: 
+str2 erase begin: ello std string and STL
+*/
+```
+
+*字符串替换、子串、查找*
+
+```cpp
+/* Example */
+
+#include <iostream>
+#include <string>
+
+int main(void) {
+  std::string str1 = "Hello String";
+  std::string str2 = "good night";
+
+  // replace
+  str1.replace(2, 6, str2);
+  std::cout << "str1.replace(2, 6, str2): " << str1 << std::endl;
+  // 提取子串
+  std::cout << "substr(5, 3): " << str1.substr(5, 3) << std::endl;
+  // 查找
+  std::cout << "str1.find(\"good\"): " << str1.find("good") << std::endl;
+  int index = str2.find("get");
+  if (index == std::string::npos) {
+    std::cout << "can not find \"get\" in str2." << std::endl;
+  } else {
+    std::cout << "index: " << index << std::endl;
+  }
+  // to string
+  int num = 114;
+  std::cout << "to string: " << (str2 + std::to_string(num)) << std::endl;
+  // string to number
+  std::string str3 = "514";
+  std::cout << "string to number: " << std::stoi(str3) << std::endl;
+  std::string str4 = "114.514";
+  std::cout << "string to number: " << std::stod(str4) << std::endl;
+
+  return 0;
+}
+
+/*
+str1.replace(2, 6, str2): Hegood nightring
+substr(5, 3): d n
+str1.find("good"): 2
+can not find "get" in str2.
+to string: good night114
+string to number: 514
+string to number: 114.514
+*/
+```
+
+### string_view
+
+`string_view`的用法和`string`差不多. 
+`string_view`在复制字符串时与原字符串共享同一块内存. 
+
+```cpp
+/* Example */
+
+#include <iostream>
+#include <string>
+#include <string_view>
+
+int main(void) {
+  const char *str1 = "hello string view";
+  std::string str2(str1);
+  std::string_view sv = str1;
+
+  std::cout << "address str1: " << (uintptr_t)str1 << std::endl;
+  std::cout << "address str2: " << (uintptr_t)str2.data() << std::endl;
+  std::cout << "address str3: " << (uintptr_t)sv.data() << std::endl;
+
+  const char *str4 = "犯大吴疆土者";
+  std::string_view sv2 = str4;
+  // remove_prefix
+  sv2.remove_prefix(2);
+  std::cout << "sv1: " << sv2 << std::endl;
+  // remove_suffix
+  sv2.remove_suffix(4);
+  std::cout << "sv1: " << sv2 << std::endl;
+
+  return 0;
+}
+
+/*
+address str1: 94352231383048
+address str2: 94352261852848
+address str3: 94352231383048
+sv1: �大吴疆土者
+sv1: �大吴疆�
 */
 ```
 
