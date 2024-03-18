@@ -1292,3 +1292,607 @@ int main(void) {
 共享内存是所有进程间通信方式中效率最高的, 它是直接对物理内存进行操作. 
 
 #### 信号
+
+信号是一种异步通信方式, 进程不必等待信号到达, 进程也不知道信号什么时候到达. 
+
+信号是软件中断, 是在软件层次上对中断机制的一种模拟. 
+信号可以使一个正在运行的进程被另一个正在运行的进程异步进程中断, 
+转而处理某个突发事件. 
+
+信号可以直接进行用户空间进程和内核空间进程的交互, 
+内核空间进程可以利用信号来通知用会空间进程发生了哪些系统事件. 
+
+**产生信号的方式**
+
+* 终端按键(如`ctrl + c`、`ctrl + z`);
+* 硬件异常产生信号; 
+* 软件异常产生信号;
+* 调用`kill`函数将产生信号, 运行`kill`函数将发送信号; 
+
+**信号的默认处理方式**
+
+当进程中产生信号, 就会让当前进程作出一定的反应;
+
+1. 终止进程: 当信号产生后, 当前进程就会立即结束; 
+2. 缺省处理: 当信号产生后, 当前进程不做任何处理; 
+3. 停止进程: 当信号产生后, 当前进程停止; 
+4. 恢复运行: 当信号产生后, 停止的进程会恢复执行;
+
+> 每个信号只有一个默认处理方式. 
+
+**进程接收到信号后的处理方式**
+
+1. 执行系统默认操作: 对大多数信号, 系统默认操作是终止进程;
+2. 忽略: 不做任何操作;
+3. 自定义信号处理函数: 执行用户自定义函数; 
+
+| 信号 | 值 | 性质 | 默认处理方式 |
+| ----- | ----- | ----- | ----- |
+| `SIGKILL` | 9 | - | 退出进程 |
+| `SIGSTOP` | 19 | 无法捕捉 | 停止进程 |
+| `SIGINT` | 2 | `ctrl + c`产生信号 | 退出进程 |
+| `SIGQUIT` | 3 | `ctrl + \`产生信号 | 退出进程 |
+| `SIGTSTP` | 20 | `ctrl + z`产生信号 | 停止进程 |
+| `SIGCONT` | 18 | - | 恢复运行 |
+| `SIGALRM` | 14 | 调用`alarm`函数设置的时间到达时产生信号 | 退出进程 |
+| `SIGPIPE` | 13 | 管道破裂时产生信号 | 退出进程 |
+| `SIGABRT` | 6 | 调用`abort`函数时产生信号 | 退出进程 |
+| `SIGCHLD` | 17 | 使用`fork`创建一个子进程, 子进程状态改变, 产生信号 | 缺省 |
+| `SIGUSR1` | 10 | 用户自定义信号 | 缺省 |
+| `SIGUSR2` | 12 | 用户自定义信号 | 缺省 |
+
+##### `kill`函数
+
+`kill`函数给指定的进程或进程组发送信号.
+
+```c
+#include <signal.h>
+
+int kill(pid_t pid, int sig);
+
+/*
+pid > 0: 将信号发送给进程ID为pid的进程;
+pid = 0: 将信号发送给当前进程所在进程组中的所有进程;
+pid = -1: 将信号发送给系统内所有的进程, 除了init进程;
+pid < -1: 将信号发送给指定进程组的所有进程(进程组号 = |pid|);
+sig: 指定的信号;
+return: 成功(0) 失败(!0)
+*/
+```
+
+**子进程发送信号使父进程退出**
+
+```c
+/* Example */
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main(void) {
+  pid_t pid = fork();
+
+  if (pid < 0) {
+    perror("fail to create process\n");
+    exit(1);
+  } else if (pid > 0) {
+    while (1) {
+      printf("parent process\n");
+      sleep(1);
+    }
+  } else {
+    printf("child process\n");
+    sleep(3);
+    kill(getppid(), SIGINT);
+  }
+
+  return 0;
+}
+
+/*
+parent process
+child process
+parent process
+parent process
+
+*/
+```
+
+##### `alarm`函数
+
+`alarm`函数设定一个时间, 当设定的时间到时, 产生`SIGALRM`信号. 
+
+```c
+#include <unistd.h>
+
+unsigned int alarm(unsigned int seconds);
+
+seconds: 秒数
+return: 如果alarm函数之前没有alarm设置, 返回0, 如果有, 返回上一个alarm剩余时间. 
+```
+
+```c
+/* Example */
+
+#include <stdio.h>
+#include <unistd.h>
+
+int main(void) {
+  unsigned int second;
+  second = alarm(5);
+  sleep(3);
+  second = alarm(7);
+
+  printf("second = %d\n", second);
+  while (1) {
+    printf("continue ...\n");
+    sleep(1);
+  }
+
+  return 0;
+}
+
+/*
+second = 2
+continue ...
+continue ...
+continue ...
+continue ...
+continue ...
+continue ...
+continue ...
+[1]    5301 alarm      ./alarm_test
+*/
+```
+
+##### `raise`函数
+
+`raise`函数给调用进程本身发送信号.
+
+```c
+#include <signal.h>
+
+int raise(int sig);
+
+/*
+sig: 信号
+return: 成功(0); 失败(!0)
+*/
+
+/* Example */
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main(void) {
+  int count = 0;
+  while (1) {
+    count++;
+    printf("%d continue ...\n", count);
+    sleep(1);
+    if (count == 5) {
+      raise(SIGINT);
+    }
+  }
+
+  return 0;
+}
+
+/*
+1 continue ...
+2 continue ...
+3 continue ...
+4 continue ...
+5 continue ...
+
+*/
+```
+
+##### `pause`函数
+
+`pause`函数阻塞进程等待一个信号的产生. 
+
+```c
+#include <unistd.h>
+
+int pause(void);
+
+/* return: 有信号产生时返回-1 */
+
+/* Example */
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main(void) {
+  pid_t pid = fork();
+  if (pid < 0) {
+    perror("fail to create process\n");
+    exit(1);
+  } else if (pid > 0) {
+    printf("parent process running ...\n");
+    // 捕捉信号
+    pause();
+  } else {
+    printf("child process running ...\n");
+    sleep(3);
+    kill(getppid(), SIGINT);
+    printf("child send signal to parent\n");
+  }
+
+  return 0;
+}
+
+/*
+parent process running ...
+child process running ...
+child send signal to parent
+
+*/
+```
+
+##### `signal`函数
+
+当进程中产生某个信号时, `signal`函数对当前信号进行处理. 
+
+```c
+#include <signal.h>
+
+typedef void (*sighandler_t)(int);
+sighandler_t signal(int signum, sighandler_t handler);
+
+/*
+sig: 信号;
+handler: 处理方式;
+SIG_IGN: 当信号产生时, 忽略
+SIG_DFL: 当信号产生时, 默认处理方式
+void handler(int sig): 当信号产生时, 自定义处理方式
+return: 
+成功: 返回函数的地址, 为此信号上一次注册的信号处理函数地址
+失败: SIG_ERR
+*/
+```
+
+**以自定义函数方式处理信号**
+
+```c
+/* Example */
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+void handler(int sig);
+
+int main(void) {
+  if (signal(SIGINT, handler) == SIG_ERR) {
+    perror("fail to handle\n");
+    exit(1);
+  }
+  if (signal(SIGQUIT, handler) == SIG_ERR) {
+    perror("fail to handle\n");
+    exit(1);
+  }
+  if (signal(SIGUSR1, handler) == SIG_ERR) {
+    perror("fail to handle\n");
+    exit(1);
+  }
+  raise(SIGUSR1);
+  while (1) {
+    printf("main is running\n");
+    sleep(1);
+  }
+}
+
+void handler(int sig) {
+  if (sig == SIGINT) {
+    printf("SIGINT is handling\n");
+  }
+  if (sig == SIGQUIT) {
+    printf("SIGQUIT is handing\n");
+  }
+  if (sig == SIGUSR1) {
+    printf("SIGUSR1 is handling\n");
+  }
+}
+
+/*
+SIGUSR1 is handling
+main is running
+main is running
+^CSIGINT is handling
+main is running
+main is running
+^\SIGQUIT is handing
+main is running
+*/
+```
+
+**`signal`函数返回值**
+
+```c
+/* Example */
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+typedef void (*sighandler_t)(int);
+
+sighandler_t ret_handler = NULL;
+void handler(int sig);
+
+int main(void) {
+  if ((ret_handler = signal(SIGINT, handler)) == SIG_ERR) {
+    perror("fail to handle\n");
+    exit(1);
+  }
+  while (1) {
+    printf("main is running ...\n");
+    sleep(1);
+  }
+
+  return 0;
+}
+
+void handler(int sig) {
+  printf("%s: has been called\n", __func__);
+  if (signal(SIGINT, ret_handler) == SIG_ERR) {
+    perror("fail to handle\n");
+    exit(1);
+  }
+}
+
+/*
+main is running ...
+main is running ...
+^Chandler: has been called
+main is running ...
+main is running ...
+^C
+*/
+```
+
+##### 可重入函数
+
+可重入函数是指函数可以由多个任务并发使用, 而不必担心数据错误. 即可以被中断的函数, 
+可以在任何时刻中断, 并执行另一块代码, 执行完毕后, 回到原来的代码还可以正常运行. 
+
+可重入函数具备以下特点: 
+
+* 不使用或仅使用线程本地存储的静态数据; 
+* 不修改全局变量或共享数据; 
+* 不调用非可重入的函数; 
+
+**`sleep`函数**, 当执行信号处理函数之后, 不会回到原来的位置继续睡眠. 
+
+```c
+/* Example */
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+
+void handler(int sig) {
+  printf("handle signal ...\n");
+}
+
+int main(void) {
+  signal(SIGINT, handler);
+  sleep(6);
+  alarm(5);
+  while (1) {
+    printf("process is running ...\n");
+    sleep(1);
+  }
+
+  return 0;
+}
+
+/*
+^Chandle signal ...
+process is running ...
+process is running ...
+process is running ...
+process is running ...
+process is running ...
+[1]    8439 alarm      ./sleep_test
+*/
+```
+
+**`read`函数**, 在等待终端输入时, 如果产生信号并执行信号处理函数, 
+可以继续输入数据, 但是之前输入的数据会丢失. 
+
+```c
+/* Example */
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define N 32
+
+void handler(int sig) { printf("handle signal ...\n"); }
+
+int main(void) {
+  signal(SIGINT, handler);
+
+  char buffer[N] = {};
+  if (read(0, buffer, N) == -1) {
+    perror("fail to read\n");
+    exit(1);
+  }
+  printf("buffer = %s\n", buffer);
+
+  return 0;
+}
+
+/*
+hello^Chandle signal ...
+world!
+buffer = world!
+
+*/
+```
+
+##### 信号集
+
+信号集是用来表示多个信号的数据类型. 
+
+```c
+#include <signal.h>
+
+int sigemptyset(sigset_t *set);
+
+/*
+初始化由set指向的信号集, 清除其中所有的信号, 即初始化一个空信号集. 
+set: 信号集标示的地址; 
+return: 成功(0); 失败(-1);
+*/
+
+int sigfillset(sigset_t *set);
+
+/*
+初始化信号集set, 将信号集设置为所有信号的集合. 
+set: 信号集标示的地址; 
+return: 成功(0); 失败(-1);
+*/
+
+int sigaddset(sigset_t *set, int signum);
+
+/*
+将信号signum加入到信号集set中. 
+set: 信号集标示的地址; 
+signum: 信号;
+return: 成功(0); 失败(-1);
+*/
+
+int sigdelset(sigset_t *set, int signum);
+
+/*
+将信号signum从信号集中删除. 
+set: 信号集标示的地址; 
+signum: 信号;
+return: 成功(0); 失败(-1);
+*/
+
+int sigismember(const sigset_t *set, int signum);
+
+/*
+查询signum是否在信号集set中. 
+set: 信号集标示的地址; 
+signum: 信号;
+return: 成功(1/0); 失败(-1);
+*/
+```
+
+```c
+/* Example */
+
+#include <signal.h>
+#include <stdio.h>
+
+int main(void) {
+  sigset_t set = {};
+  int ret = 0;
+
+  // initialize an empty sigset
+  sigemptyset(&set);
+  ret = sigismember(&set, SIGINT);
+  if (ret == 0) {
+    printf("SIGINT is not a member of sigset\n");
+  } else {
+    printf("SIGINT is a member of sigset\n");
+  }
+  // add signal
+  sigaddset(&set, SIGINT);
+  sigaddset(&set, SIGQUIT);
+  ret = sigismember(&set, SIGINT);
+  if (ret == 0) {
+    printf("SIGINT is not a member of sigset\n");
+  } else {
+    printf("SIGINT is a member of sigset\n");
+  }
+
+  return 0;
+}
+
+/*
+SIGINT is not a member of sigset
+SIGINT is a member of sigset
+*/
+```
+
+##### 信号阻塞集
+
+每个进程都有一个阻塞集, 用来描述哪些信号发送到该进程时被阻塞. 
+(在信号发生时候记住, 直到进程准备好时, 再将信号通知进程); 
+
+所谓的阻塞并不是禁止传送信号, 而是暂缓信号的传送. 
+若将被阻塞的信号从信号阻塞集中删除, 且对应的信号在被阻塞时发生, 进程会收到相应的信号. 
+
+```c
+int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+
+/*
+检查或修改信号阻塞集, 根据how指定的方法对进程信号阻塞集进行修改, 
+新的信号阻塞集由set指定, 而原先的信号阻塞集由oldset保存. 
+
+how: 信号阻塞集的修改方法
+SIG_BLOCK: 向信号阻塞集中添加set信号集
+SIG_UNBLOCK: 从信号阻塞集中删除set信号集
+SIG_SETMASK: 将信号阻塞集设置为set信号集
+
+return: 成功(0); 失败(-1)
+*/
+
+/* Example */
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int main(void) {
+  sigset_t set = {};
+  sigemptyset(&set);
+  sigaddset(&set, SIGINT);
+
+  while (1) {
+    sigprocmask(SIG_BLOCK, &set, NULL);
+    printf("SIGINT is in sigblock set\n");
+    sleep(3);
+    sigprocmask(SIG_UNBLOCK, &set, NULL);
+    printf("SIGINT is not in sigblock set\n");
+    sleep(3);
+  }
+
+  return 0;
+}
+
+/*
+阻塞后退出
+SIGINT is in sigblock set
+SIGINT is not in sigblock set
+SIGINT is in sigblock set
+^C
+
+立即退出
+SIGINT is in sigblock set
+SIGINT is not in sigblock set
+^C
+*/
+```
+
