@@ -1896,3 +1896,590 @@ SIGINT is not in sigblock set
 */
 ```
 
+#### 管道
+
+##### 无名管道
+
+管道又称无名管道, 无名管道是一种特殊类型的文件, 在应用层体现为两个打开的文件描述符. 
+
+> 任何一个进程在创建的时候, 系统都会为其分配虚拟内存, 虚拟内存又分为用户空间和内核空间, 
+内核空间是所有进程公有的, 无名管道就是创建在内核空间的, 故可以使用无名管道进行通信. 
+
+无名管道虽然在内核空间创建, 但会给当前进程提供两个文件描述符, 即读和写操作. 
+
+**管道的特点**: 
+
+* 半双工, 数据在同一时刻只能在一个方向上流动;
+* 数据只能从管道的一端写入, 从另一端读出;
+* 写入管道中的数据遵循先入先出的规则;
+* 管道传输的数据是无格式的, 这要求管道的读写方事先约定好数据的格式;
+* 管道不是普通的文件, 不属于某个文件系统, 只存在于内存中;
+* 管道在内存中对应一个缓冲区;
+* 从管道读数据是一次性操作, 数据一旦被读走, 就会被管道抛弃, 释放空间读取别的数据;
+* 管道没有名字, 只能在具有公共祖先的进程之间使用;
+
+**创建无名管道**
+
+```c
+#include <unistd.h>
+
+int pipe(int pipefd[2]);
+
+/*
+创建一个无名管道, 给出两个文件描述符进行读写操作
+
+pipefd[0]: 读操作
+pipefd[1]: 写操作
+return: 成功(0); 失败(-1)
+*/
+```
+
+**无名管道实现进程间通信**
+
+```c
+/* Example */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#define N 32
+
+int main(int argc, char *argv[]) {
+  int pipefd[2] = {};
+  // create a pipe
+  if (pipe(pipefd) == -1) {
+    perror("fail to create a pipe\n");
+    exit(1);
+  }
+
+  pid_t pid = fork();
+  if (pid < 0) {
+    perror("fail to create a process\n");
+    exit(1);
+  } else if (pid > 0) {
+    char buffer[N] = {};
+    while (1) {
+      fgets(buffer, sizeof(buffer), stdin);
+      buffer[N - 1] = '\0';
+      if (write(pipefd[1], buffer, N) == -1) {
+        perror("fail to write\n");
+        exit(1);
+      }
+    }
+  } else {
+    char buffer[N] = {};
+    while (1) {
+      if (read(pipefd[0], buffer, N) == -1) {
+        perror("fail to read\n");
+        exit(1);
+      }
+      printf("%d receive the data: %s", getpid(), buffer);
+    }
+  }
+
+  return 0;
+}
+
+/*
+hello world
+15854 receive the data: hello world
+good game
+15854 receive the data: good game
+^C
+*/
+```
+
+> 利用无名管道进行进程间通信, 都是父进程创建无名管道, 然后再创建子进程, 
+子进程继承父进程的无名管道的文件描述符, 从而实现父进程与子进程间通信. 
+
+**无名管道读写规律**
+
+* 读写端都存在, 只读不写, 如果管道中有数据, 会正常读取数据, 如果管道中没有数据, 
+则读操作会阻塞等待, 直到管道中有数据为止. 
+
+* 读写端都存在, 只写不读, 如果一直执行写操作, 则无名管道对应的缓冲区会被写满, 
+写满之后, write函数也会阻塞等待. 
+
+* 只有读端, 没有写端, 如果原本管道中有数据, 则读操作正常读取数据, 
+否则`read`函数返回0. 
+
+* 只有写端, 没有读端, 一旦执行写操作, 就会产生一个管道破裂的信号, 
+这个信号的默认处理方式是退出进程. 
+
+```c
+/* Example */
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+void handler(int sig) {
+  printf("SIGPIPE %s\n", __func__);
+  exit(1);
+}
+
+int main(int argc, char *argv[]) {
+  signal(SIGPIPE, handler);
+  const int N = 32;
+
+  int pipefd[2] = {};
+  if (pipe(pipefd) == -1) {
+    perror("fail to create a pipe\n");
+    exit(1);
+  }
+  close(pipefd[0]);
+  if (write(pipefd[1], "hello world\n", N) == -1) {
+    perror("fail to write\n");
+    exit(1);
+  }
+
+  return 0;
+}
+
+/* SIGPIPE handler */
+```
+
+##### `fcntl`函数
+
+`fcntl`是用于对文件描述符进行操作的系统调用. 可以用于执行各种操作, 
+例如设置文件描述符的属性、获取文件描述符的状态以及对文件描述符进行锁定. 
+
+```c
+#include <fcntl.h>
+
+int fcntl(int fd, int cmd, .../* arg */);
+
+/*
+fd: 文件描述符, 表示要进行操作的文件
+cmd: 要执行的操作命令
+F_DUPFD: 复制文件描述符
+F_GETFD: 获取文件描述符的标志
+F_SETFD: 设置文件描述符的标志
+F_GETFL: 获取文件状态标志
+F_SETFL: 设置文件状态标志
+F_GETLK: 获取文件锁定状态
+F_SETLK: 设置文件锁定状态
+F_SETLKW: 设置文件锁定状态
+arg: 额外参数
+*/
+
+// 设置为阻塞
+// 管道中没有数据, read会一直等待, 直到有数据. 
+fcntl(fd, F_SETFL, 0);
+
+// 设置为非阻塞
+// 如果有数据, read正常读取数据, 否则, read立即返回. 
+fcntl(fd, F_SETFL, O_NONBLOCK);
+```
+
+**`fcntl`函数设置文件的阻塞性**
+
+```c
+/* Example */
+
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main(int argc, char *argv[]) {
+  int pipefd[2] = {};
+  char buffer[] = "what can I say";
+  pid_t pid = 0;
+
+  if (pipe(pipefd) == -1) {
+    perror("fail to create a pipe\n");
+    exit(1);
+  }
+
+  pid = fork();
+  if (pid < 0) {
+    perror("fail to create a process\n");
+    exit(1);
+  } else if (pid > 0) {
+    while (1) {
+      sleep(5);
+      write(pipefd[1], buffer, strlen(buffer));
+    }
+  } else {
+    // 设置为非阻塞
+    fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
+    while (1) {
+      memset(buffer, 0, sizeof(buffer));
+      if (read(pipefd[0], buffer, sizeof(buffer)) == -1) {
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+          perror("fail to read\n");
+          exit(1);
+        }
+      }
+      printf("buffer = %s\n", buffer);
+      sleep(1);
+    }
+  }
+
+  return 0;
+}
+
+/*
+buffer = 
+buffer = 
+buffer = 
+buffer = 
+buffer = 
+buffer = what can I say
+buffer = 
+buffer = 
+^C
+*/
+```
+
+##### 文件描述符
+
+文件描述符是一个非负整数, 是文件的标识. 用户使用`open`打开一个文件时, 
+内核会返回一个文件描述符. 每个进程都有一张文件描述符的表, 进程被创建时, 
+标准输入、标准输出、标准错误输出对应的文件描述符为0、1、2. 
+
+> Linux中一个进程最多打开`NR_OPEN_DEFAULT = 1024`个文件. 
+
+```c
+/* Example */
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(void) {
+  int fd = open("test.txt", O_RDONLY | O_CREAT, 0664);
+  if (fd < 0) {
+    perror("fail to open the file\n");
+    exit(1);
+  }
+  printf("fd = %d\n", fd);
+
+  return 0;
+}
+
+/* fd = 3 */
+```
+
+**`dup`函数**
+
+`dup`函数复制旧文件的文件描述符, 并分级一个新的文件描述符, 
+新的文件描述符是调用进程文件描述符表中最小可用的文件描述符. 
+
+```c
+#include <unistd.h>
+
+int dup(int oldfd);
+
+/*
+oldfd: 要复制的文件描述符
+return: 成功(新的文件描述符); 失败(-1)
+*/
+
+/* Example */
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+int main(void) {
+  char buffer[] = "what can I say\n";
+  // 通过dup复制一个标准输出文件
+  int fd = dup(1);
+
+  printf("fd = %d\n", fd);
+  write(fd, buffer, strlen(buffer));
+
+  return 0;
+}
+
+/*
+fd = 3
+what can I say
+*/
+```
+
+**`dup2`函数**
+
+`dup2`函数复制一份打开的文件描述符`oldfd`, 并分配新的文件描述符`newfd`, 
+`newfd`也标识`oldfd`所标识的文件. 
+
+*`newfd`是小于文件描述符最大允许值的非负整数, 如果`newfd`是一个已经打开的文件描述符, 
+则首先关闭该文件, 然后再复制*
+
+```c
+#include <unistd.h>
+
+int dup2(int oldfd, int newfd);
+
+/*
+oldfd: 要复制的文件描述符
+newfd: 分配的新的文件描述符
+return: 成功(newfd); 失败(-1)
+*/
+
+/* Example */
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
+
+int main(int argc, char *argv[]) {
+  int fd1 = 0;
+  int fd2 = 3;
+
+  dup2(1, fd2);
+  printf("fd2 = %d\n", fd2);
+  fd1 = open("test.txt", O_CREAT | O_RDWR, 0664);
+  // 关闭文件描述法1, 将fd1复制一份给1
+  dup2(fd1, 1);
+  // 输出到test.txt文件
+  printf("what can I say\n");
+  // 关闭文件描述符1, 将fd2复制一份给1
+  dup2(fd2, 1);
+  // 输出到stdin
+  printf("what can I say\n");
+
+  return 0;
+}
+
+/*
+fd2 = 3
+what can I say
+*/
+```
+
+##### 有名管道
+
+**有名管道(`FIFO`)的特点**: 
+
+* 半双工, 数据在同一时刻只能在一个方向上流动;
+* 写入`FIFO`中的数据遵循先入先出的规则;
+* `FIFO`传输的数据是无格式的, 这要求`FIFO`的读写方事先约定好数据的格式;
+* `FIFO`在文件系统中作为一个特殊文件而存在且在文件系统中可见, 
+故有名管道可以实现不相关的进程间通信, 但`FIFO`的内容却可以存放在内存中; 
+* 有名管道在内存中对应一个缓冲区;
+* 从`FIFO`读数据是一次性操作, 数据一旦被读走, 就会被管道抛弃, 释放空间读取别的数据;
+* 当使用`FIFO`的进程退出后, `FIFO`文件将继续保存在文件系统中以便以后使用; 
+* `FIFO`有名字, 不相关的进程可以通过打开有名管道进行通信;
+
+**有名管道的创建**
+
+```c
+// mkfifo fifo (shell命令)
+
+#include <sys/types.h>
+#include <sys/stat.h>
+
+int mkfifo(const char *pathname, mode_t mode);
+
+/*
+pathname: 有名管道创建后生成的文件
+mode: 管道文件的权限, 如0664
+return: 成功(0); 失败(-1)
+*/
+```
+
+**有名管道读写操作**
+
+```c
+/* Example */
+
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main(void) {
+  // create fifo
+  if (mkfifo("myfifo", 0664) == -1) {
+    if (errno != EEXIST) {
+      perror("fail to create fifo\n");
+      exit(1);
+    }
+  }
+
+  int fd = open("myfifo", O_RDWR);
+  if (fd == -1) {
+    perror("fail to open\n");
+    exit(1);
+  }
+  // write
+  char message[] = "what can I say";
+  if (write(fd, message, strlen(message)) == -1) {
+    perror("fail to write\n");
+    exit(1);
+  }
+  // read
+  char buffer[32] = {};
+  if (read(fd, buffer, sizeof(buffer)) == -1) {
+    perror("fail to read\n");
+    exit(1);
+  }
+  printf("buffer = %s\n", buffer);
+  // close
+  close(fd);
+
+  return 0;
+}
+
+/* buffer = what can I say */
+```
+
+**有名管道进程间通信**
+
+* **发送端(`send`)**
+
+```c
+/* Example */
+
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#define N 128
+
+int main(int argc, char *argv[]) {
+  if (mkfifo(argv[1], 0664) == -1) {
+    if (errno != EEXIST) {
+      perror("fail to create fifo\n");
+      exit(1);
+    }
+  }
+
+  if (mkfifo(argv[2], 0664) == -1) {
+    if (errno != EEXIST) {
+      perror("fail to create fifo\n");
+      exit(1);
+    }
+  }
+
+  // open fifo
+  int fd_w = open(argv[1], O_WRONLY);
+  if (fd_w == -1) {
+    perror("fail to open fifo\n");
+    exit(1);
+  }
+  int fd_r = open(argv[2], O_RDONLY);
+  if (fd_r == -1) {
+    perror("fail to open fifo\n");
+    exit(1);
+  }
+
+  char buffer[N] = {};
+
+  while (1) {
+    memset(buffer, 0, N);
+    fgets(buffer, N, stdin);
+    buffer[N - 1] = '\0';
+    // send message
+    if (write(fd_w, buffer, N) == -1) {
+      perror("fail to send\n");
+      exit(1);
+    }
+    // receive message
+    memset(buffer, 0, N);
+    if (read(fd_r, buffer, N) == -1) {
+      perror("fail to receive\n");
+      exit(1);
+    }
+    printf("receive message: %s", buffer);
+  }
+
+  return 0;
+}
+```
+
+* **接收端(`recv`)**
+
+```c
+/* Example */
+
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#define N 128
+
+int main(int argc, char *argv[]) {
+  if (mkfifo(argv[1], 0664) == -1) {
+    if (errno != EEXIST) {
+      perror("fail to create fifo\n");
+      exit(1);
+    }
+  }
+
+  if (mkfifo(argv[2], 0664) == -1) {
+    if (errno != EEXIST) {
+      perror("fail to create fifo\n");
+      exit(1);
+    }
+  }
+
+  int fd_r = open(argv[1], O_RDONLY);
+  if (fd_r == -1) {
+    perror("fail to open\n");
+    exit(1);
+  }
+  int fd_w = open(argv[2], O_WRONLY);
+  if (fd_w == -1) {
+    perror("fail to open\n");
+    exit(1);
+  }
+
+  char buffer[N] = {};
+
+  while (1) {
+    memset(buffer, 0, N);
+    if (read(fd_r, buffer, N) == -1) {
+      perror("fail to read\n");
+      exit(1);
+    }
+    printf("receive message: %s", buffer);
+    memset(buffer, 0, N);
+    fgets(buffer, N, stdin);
+    buffer[N - 1] = '\0';
+    if (write(fd_w, buffer, N) == -1) {
+      perror("fail to write\n");
+      exit(1);
+    }
+  }
+
+  return 0;
+}
+```
+
+**有名管道读写规律**
+
+* 读写端都存在, 只读不写, 如果管道中有数据, 会正常读取数据, 如果管道中没有数据, 
+则读操作会阻塞等待, 直到管道中有数据为止. 
+
+* 读写端都存在, 只写不读, 如果一直执行写操作, 则无名管道对应的缓冲区会被写满, 
+写满之后, write函数也会阻塞等待. 
+
+* 只有读端, 没有写端, 会在`open`函数位置被阻塞. 
+
+* 只有写端, 没有读端, 会在`open`函数位置被阻塞. 
+
