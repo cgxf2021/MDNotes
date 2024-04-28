@@ -2483,3 +2483,169 @@ int main(int argc, char *argv[]) {
 
 * 只有写端, 没有读端, 会在`open`函数位置被阻塞. 
 
+### 线程
+
+每个进程都有自己的数据段、代码段和堆栈段, 这就造成了进程在创建、切换、撤销操作时, 
+需要较大的系统开销, 为了减少系统开销, 从进程中演化出了线程. 
+
+线程存在于进程中, 共享进程的资源. 线程是进程中独立控制流(具有独立执行的一条路径). 
+由环境和一系列的执行指令组成. 每个进程都有一个地址空间和一个控制线程. 
+
+**线程和进程的比较**
+
+* 线程是CPU调度和分配的基本单位, 进程是系统中程序执行和资源分配的基本单元. 
+线程一般不拥有资源(除程序计数器, 寄存器, 栈), 但可以访问其所属进程的资源. 
+* 同一个进程中的多个线程可以共享同一地址空间; 
+在进程切换时涉及到整个当前进程CPU环境的保存以及新被调度运行的进程的CPU环境设置, 
+而线程切换只需要保存和设置少量的寄存器内容, 并不涉及存储器管理方面的操作, 
+有效地使用系统资源和提高系统吞吐量. 
+* 不仅进程间可以并发执行, 在一个进程中的多个线程间也可以并发执行. 
+
+> 一个进程可以创建多个线程, 多个线程可以共享一个进程资源. 
+每个进程创建的时候系统会分配虚拟内存(用户空间和内核空间), 当进程切换时, 
+用户空间也会切换, 所以会增加系统开销, 而一个进程中的多个线程共享一个进程的资源, 
+所以线程切换时不会切换这些资源, 从而效率更高. 
+
+**多线程的用途**
+
+* 多任务程序的设计; 
+* 并发程序的设计; 
+* 网络程序的设计; 
+* 数据共享; 
+* 多个CPU, 实现并行处理; 
+
+#### 线程的基本操作
+
+##### 线程的创建
+
+`pthread_create`函数用于创建一个新的子线程
+
+```c
+#include <pthread.h>
+
+int pthread_create(pthread_t *thread, const pthread_attr_t *attr, 
+                    void *(*start_routine) (void *), void *arg);
+
+/*
+thread: 线程id
+attr: 线程的属性, 默认属性(NULL)
+start_routine: 线程处理函数(当前函数执行完毕, 子线程执行完毕)
+arg: 线程处理函数的参数
+*/
+```
+
+> 与`fork`函数不同, `pthread_create`函数创建的线程不与主线程在同一点开始执行, 
+而是从指定的处理函数开始运行, 该函数执行完毕后线程退出. 
+线程依赖进程的存在, 如果创建线程的进程结束, 线程也就结束.
+
+```c
+/* Example */
+
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+void *run(void *arg);
+
+int main(int argc, char *argv[]) {
+  // create child thread
+  pthread_t thread = 0;
+  if (pthread_create(&thread, NULL, run, NULL) != 0) {
+    perror("fail to create child thread\n");
+    exit(1);
+  }
+  while (1) {
+    printf("main thread is running ...\n");
+    sleep(1);
+  }
+
+  return 0;
+}
+
+void *run(void *arg) {
+  while (1) {
+    printf("child thread is running ...\n");
+    sleep(1);
+  }
+
+  return NULL;
+}
+
+/*
+main thread is running ...
+child thread is running ...
+main thread is running ...
+child thread is running ...
+child thread is running ...
+main thread is running ...
+^C
+*/
+```
+
+> 线程处理函数是并行执行的, 是来回交替执行的. 
+
+**线程处理函数传参**
+
+```c
+/* Example */
+
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int n = 200;
+
+void *run1(void *arg);
+void *run2(void *arg);
+
+int main(int argc, char *argv[]) {
+  printf("main thread is running ...\n");
+  int k = 100;
+  // create thread
+  pthread_t thread1 = 0;
+  pthread_t thread2 = 0;
+
+  if (pthread_create(&thread1, NULL, run1, (void *)&k) != 0) {
+    perror("fail to create thread1\n");
+    exit(1);
+  }
+  if (pthread_create(&thread2, NULL, run2, (void *)&k) != 0) {
+    perror("fail to create thread2\n");
+    exit(1);
+  }
+  while (1) {
+  }
+
+  return 0;
+}
+
+void *run1(void *arg) {
+  printf("thread 1: n = %d\n", n);
+  n++;
+  printf("thread 1: k = %d\n", *(int *)arg);
+  *(int *)arg *= 3;
+
+  return NULL;
+}
+
+void *run2(void *arg) {
+  sleep(1);
+  printf("thread 2: n = %d\n", n);
+  printf("thread 2: k = %d\n", *(int *)arg);
+
+  return NULL;
+}
+
+/*
+main thread is running ...
+thread 1: n = 200
+thread 1: k = 100
+thread 2: n = 201
+thread 2: k = 300
+^C
+*/
+```
