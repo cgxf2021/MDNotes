@@ -2649,3 +2649,254 @@ thread 2: k = 300
 ^C
 */
 ```
+
+### 网络编程
+
+#### 网络分层结构
+
+为了实现不同类型的计算机, 不同类型的操作系统之间进行通信, 引入了分层的概念. 
+最早的分层体系结构是OSI开放系统互联模型, 是由国际化标准组织(ISO)指定的, 
+由于OSI过于复杂, 所以到现在为止也没有适用, 而使用的是TCP/IP协议族.
+OSI一共分为7层, TCP/IP协议族一共4层, 虽然TCP/IP协议族层数少, 
+但却干了OSI7层的所有任务. 
+
+**OSI 7层**
+
+1. 物理层: 负责传输比特流, 处理物理接口和介质; 
+2. 数据链路层: 提供可靠的点对点数据传输, 通过帧来管理物理地址和错误检测; 
+3. 网络层: 处理分组传输, 包括路由和逻辑寻址, 以便在网络中正确地传输数据; 
+4. 传输层: 提供端到端的数据传输, 通常使用传输控制协议(TCP)或用户数据报协议(UDP); 
+5. 会话层: 建立、管理和终止会话连接, 允许不同设备之间的通信; 
+6. 表示层: 处理数据的表示和转换, 包括加密、压缩和格式转换; 
+7. 应用层: 提供应用程序之间的通信服务, 例如电子邮件, 文件传输和远程访问; 
+
+**TCP/IP 4层**
+
+1. 网络接口层: 类似于OSI模型的物理层和数据链路层, 处理物理接口和网络访问; 
+2. 网络层: 相当于OSI模型的网络层, 处理分组的传输和逻辑寻址, 以及IP协议的功能; 
+3. 传输层: 与OSI模型的传输层相对应, 提供端到端的数据传输(TCP/UDP); 
+4. 应用层: 与OSI模型的会话层、表示层和应用层相对应, 提供应用程序之间的通信服务; 
+
+#### 网络字节序转换
+
+字节序指多字节数据的存储顺序, 分为小端格式和大端格式.
+
+* 小端格式: 将低位字节数据存储在低地址;
+
+* 大端格式: 将高位字节数据存储在低地址;
+
+> 低地址(LSB), 高地址(MSB).
+
+##### 判断当前系统字节序
+
+```c
+/* Example */
+
+#include <stdio.h>
+
+union ByteOrder {
+  int m;
+  char n;
+};
+
+int main(void) {
+  union ByteOrder byteOrder;
+
+  byteOrder.m = 0x12345678;
+  printf("m == %#x\n", byteOrder.m);
+  printf("n == %#x\n", byteOrder.n);
+
+  if (byteOrder.m == 0x78) {
+    printf("Little Endian Format\n");
+  } else {
+    printf("Big Endian Format\n");
+  }
+
+  return 0;
+}
+
+/*
+m == 0x12345678
+n == 0x78
+Big Endian Format
+*/
+```
+
+##### 字节序转换函数
+
+网络协议指定了通信字节序(大端格式), 只有在多字节数据处理时才需要考虑字节序. 
+运行在同一台计算机上的进程相互通信时, 一般不用考虑字节序; 异构计算机之间通信, 
+需要转换字节序为网络字节序.
+
+**host字节序转network字节序**
+
+```c
+#include <arpa/inet.h>
+
+uint32_t htonl(uint32_t hostint32);
+
+/*
+将32位主机字节序数据转为网络字节序数据
+hostint32: 待转换的32位主机字节序数据
+return: 网络字节序数据的值
+*/
+
+uint16_t htons(uint16_t hostint16);
+
+/*
+将16位主机字节序数据转为网络字节序数据
+hostint16: 待转换的16位主机字节序数据
+return: 网络字节序数据的值
+*/
+```
+
+**network字节序转host字节序**
+
+```c
+#include <arpa/inet.h>
+
+uint32_t ntohl(uint32_t netint32);
+
+/*
+将32位网络字节序数据转为主机字节序数据
+hostint32: 待转换的32位网络字节序数据
+return: 主机字节序数据的值
+*/
+
+uint16_t ntohs(uint16_t netint16);
+
+/*
+将16位网络字节序数据转为主机字节序数据
+hostint16: 待转换的16位网络字节序数据
+return: 主机字节序数据的值
+*/
+```
+
+```c
+/* Example */
+
+#include <arpa/inet.h>
+#include <stdio.h>
+
+int main(void) {
+  int m = 0x12345678;
+  short n = 0x1234;
+
+  printf("host --> network: m = %#x\n", htonl(m));
+  printf("host --> network: n = %#x\n", htons(n));
+
+  return 0;
+}
+
+/*
+host --> network: m = 0x78563412
+host --> network: n = 0x3412
+*/
+```
+
+#### 网络地址转换
+
+一般见到的IP地址是点分十进制的字符串形式, 但是计算机或网络中识别的IP地址是整形数据, 
+所以需要将IP地址字符串转换为整形数据. 
+
+##### 地址转换函数
+
+**`inet_pton`**
+
+将点分十进制字符串转成32位无符号整形.
+
+```c
+#include <arpa/inet.h>
+
+int inet_pton(int family, const char *strptr, void *addrptr);
+
+/*
+family: 协议族(AF_INET/AF_INET6)
+strptr: 点分十进制字符串
+addrptr: 32位无符号整形地址
+return: 1(成功) / !1(失败)
+*/
+
+#include <arpa/inet.h>
+#include <stdio.h>
+
+int main(void) {
+  char ipStr[] = "192.168.100.100";
+  unsigned int ipInt = 0;
+  unsigned char *ipPtr = NULL;
+
+  inet_pton(AF_INET, ipStr, &ipInt);
+  ipPtr = (unsigned char *)&ipInt;
+  printf("ipInt: %d\n", ipInt);
+  printf("ip: %d.%d.%d.%d\n", *ipPtr, *(ipPtr + 1), *(ipPtr + 2), *(ipPtr + 3));
+
+  return 0;
+}
+
+/*
+ipInt: 1684318400
+ip: 192.168.100.100
+*/
+```
+
+**`inet_ntop`**
+
+将32位无符号整形转换为点分十进制字符串.
+
+```c
+#include <arpa/inet.h>
+
+const char *inet_ntop(int family, const void *addrptr, char *strptr, size_t len);
+
+/*
+family: 协议族
+addrptr: 32位无符号整形
+strptr: 点分十进制字符串
+len: strptr缓存区长度
+len宏定义
+#define INET_ADDRSTRLEN 16 // IPV4
+#define INET6_ADDRSTRLEN 46  // IPV6
+return: 返回字符串的首地址 / NULL
+*/
+
+#include <arpa/inet.h>
+#include <stdio.h>
+
+int main(void) {
+  unsigned char ipInt[] = {192, 168, 100, 100};
+  char ipStr[INET_ADDRSTRLEN] = {};
+
+  inet_ntop(AF_INET, &ipInt, ipStr, INET_ADDRSTRLEN);
+  printf("IP: %s\n", ipStr);
+
+  return 0;
+}
+
+/*
+IP: 192.168.100.100
+*/
+```
+
+**`inet_addr`和`inet_ntoa`**
+
+只能用于IPV4地址转换. 
+
+```c
+#include <arpa/inet.h>
+
+in_addr_t inet_addr(const char *cp);
+
+/*
+将点分十进制IP转换为整形
+cp: 点分十进制IP地址
+return: 整形数据
+*/
+
+char *inet_ntoa(struct in_addr in);
+
+/*
+将整形转换为点分十进制的IP
+in: 保存ip地址的结构体
+return: 点分十进制IP地址字符串
+*/
+```
