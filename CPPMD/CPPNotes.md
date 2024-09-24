@@ -2561,6 +2561,134 @@ int main(void) {
 */
 ```
 
+### thread
+
+*创建一个子线程, 线程中执行一个无参数函数*
+
+```cpp
+/* Example */
+
+#include <iostream>
+#include <chrono>
+#include <thread>
+
+using std::cout;
+using std::endl;
+
+int i = 0;
+
+void run();
+
+int main() {
+  // 实例化一个子线程
+  std::thread subThread(run);
+  // 主线程执行
+  while (i < 10) {
+    cout << "main thread: " << i << endl;
+    // sleep 10ms
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    i++;
+  }
+
+  // 主线程等待子线程执行完成后返回
+  subThread.join();
+
+  return 0;
+}
+
+/* 子线程中执行的函数 */
+void run() {
+  while (i < 10) {
+    cout << "sub thread: " << i << endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    i++;
+  }
+}
+
+/*
+main thread: 0
+sub thread: 0
+main thread: 1
+sub thread: 2
+sub thread: 3
+main thread: 4
+main thread: 5
+sub thread: 6
+main thread: 7
+sub thread: 8
+main thread: 9
+*/
+```
+
+*创建一个子线程, 线程中执行一个类成员方法*
+
+```cpp
+/* Example */
+
+#include <chrono>
+#include <functional>
+#include <iostream>
+#include <thread>
+
+using std::cout;
+using std::endl;
+
+int i{0};
+
+class Foo {
+ public:
+  void run1() {
+    while (i < 10) {
+      cout << "thread 1 | run1:  " << i << endl;
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      i++;
+    }
+  }
+
+  void run2(int &num) {
+    cout << "thread 2 | run2 | num = " << num << endl;
+    num += 100;
+  }
+};
+
+int main() {
+  int num{10};
+  Foo foo{};
+  // 实例化子线程
+  std::thread sub1(&Foo::run1, &foo);
+  std::thread sub2(&Foo::run2, &foo, std::ref(num));
+  // 主线程执行
+  while (i < 10) {
+    cout << "main thread: " << i << endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    i++;
+  }
+  // 主线程等待子线程执行完成后返回
+  sub1.join();
+  sub2.join();
+
+  cout << "main thread | num = " << num << endl;
+
+  return 0;
+}
+
+/*
+thread 1 | run1:  0
+main thread: 0
+thread 2 | run2 | num = 10
+main thread: 1
+thread 1 | run1:  2
+main thread: 3
+thread 1 | run1:  4
+main thread: 5
+thread 1 | run1:  6
+main thread: 7
+thread 1 | run1:  8
+main thread: 9
+main thread | num = 110
+*/
+```
+
 ### 智能指针
 
 #### `unique_ptr`
